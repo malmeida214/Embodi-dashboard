@@ -139,6 +139,7 @@ export default async function handler(req, res) {
     };
 
     // 4. Compute
+    console.log("Raw 2026 QB Data:", JSON.stringify(plThis).substring(0, 1000));
     const cur  = parsePL(plThis);
     const prev = parsePL(plPrev);
     const mo   = parseMonthly(plMonthly);
