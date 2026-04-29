@@ -5,7 +5,6 @@ export default async function handler(req, res) {
   const REFRESH_TOKEN = process.env.GOOGLE_ADS_REFRESH_TOKEN;
   const CUSTOMER_ID = process.env.GOOGLE_ADS_CUSTOMER_ID;
 
-  // Basic check to ensure Vercel sees the variables
   if (!DEV_TOKEN || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !CUSTOMER_ID) {
     return res.status(500).json({ error: "Missing Google Ads Environment Variables in Vercel." });
   }
@@ -23,21 +22,24 @@ export default async function handler(req, res) {
       })
     });
     
-    const tokenData = await tokenRes.json();
+    // Catch HTML errors from the Token endpoint
+    const tokenText = await tokenRes.text();
+    let tokenData;
+    try { tokenData = JSON.parse(tokenText); } catch(e) { throw new Error(`Token API returned HTML: ${tokenText.substring(0,200)}`); }
     
     if (!tokenData.access_token) {
         return res.status(500).json({ error: "Failed to get Google Access Token", details: tokenData });
     }
 
-    // 2. The Google Ads Query Language (GAQL) request for the last 30 days
+    // 2. The GAQL request
     const query = `
       SELECT metrics.clicks, metrics.cost_micros, metrics.conversions 
       FROM campaign 
       WHERE segments.date DURING LAST_30_DAYS
     `;
 
-    // 3. Ask Google Ads for the data
-    const adsRes = await fetch(`https://googleads.googleapis.com/v15/customers/${CUSTOMER_ID}/googleAds:search`, {
+    // 3. Ask Google Ads (Upgraded to v21)
+    const adsRes = await fetch(`https://googleads.googleapis.com/v21/customers/${CUSTOMER_ID}/googleAds:search`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
@@ -48,13 +50,15 @@ export default async function handler(req, res) {
       body: JSON.stringify({ query })
     });
 
-    const adsData = await adsRes.json();
+    // Catch HTML errors from the Ads endpoint
+    const adsText = await adsRes.text();
+    let adsData;
+    try { adsData = JSON.parse(adsText); } catch(e) { throw new Error(`Ads API returned HTML: ${adsText.substring(0,200)}`); }
 
-    // 4. Dump the raw data so we can see what we caught
+    // 4. Dump the raw data
     return res.status(200).json({ success: true, rawData: adsData });
     
   } catch (error) {
     return res.status(500).json({ error: true, message: error.message });
   }
 }
-
