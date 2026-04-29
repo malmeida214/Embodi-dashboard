@@ -105,12 +105,26 @@ export default function Dashboard() {
     setLoad(true); setError(null);
     try {
       const res  = await fetch('/api/data');
+      
+      // 1. Check if the response is actually JSON before parsing
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+         const text = await res.text(); // Grab the HTML/Text error
+         console.error("Vercel crashed. Raw HTML response:", text);
+         throw new Error(`Server crashed (Status ${res.status}). Check Vercel logs.`);
+      }
+
+      // 2. Safely parse JSON
       const json = await res.json();
       if (json.error) throw new Error(json.message);
+      
       setLive(json);
       setLU(new Date(json.lastUpdated));
-    } catch(e) { setError(e.message); }
-    finally { setLoad(false); }
+    } catch(e) { 
+      setError(e.message); 
+    } finally { 
+      setLoad(false); 
+    }
   },[]);
 
   useEffect(()=>{ fetchLive(); },[fetchLive]);
