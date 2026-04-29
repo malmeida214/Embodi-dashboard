@@ -42,19 +42,22 @@ export default async function handler(req, res) {
     }
     const token = tokenData.access_token;
 
-    // 2. Fetch reports
+   // 2. Fetch reports
     const QB = `https://quickbooks.api.intuit.com/v3/company/${REALM_ID}`;
     const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
     const curYear = new Date().getFullYear();
     const prevYear = curYear - 1;
+    
+    // Create an explicit YYYY-12-31 end date to bypass the buggy date_macro
+    const endOfYear = `${curYear}-12-31`;
 
     const [plThis, plPrev, plMonthly, balance] = await Promise.all([
-      fetch(`${QB}/reports/ProfitAndLoss?minorversion=70&date_macro=This+Year&summarize_column_by=Total`, { headers }).then(r => r.json()),
+      fetch(`${QB}/reports/ProfitAndLoss?minorversion=70&start_date=${curYear}-01-01&end_date=${endOfYear}&summarize_column_by=Total`, { headers }).then(r => r.json()),
       fetch(`${QB}/reports/ProfitAndLoss?minorversion=70&start_date=${prevYear}-01-01&end_date=${prevYear}-12-31&summarize_column_by=Total`, { headers }).then(r => r.json()),
-      fetch(`${QB}/reports/ProfitAndLoss?minorversion=70&date_macro=This+Year&summarize_column_by=Month`, { headers }).then(r => r.json()),
+      fetch(`${QB}/reports/ProfitAndLoss?minorversion=70&start_date=${curYear}-01-01&end_date=${endOfYear}&summarize_column_by=Month`, { headers }).then(r => r.json()),
       fetch(`${QB}/reports/BalanceSheet?minorversion=70&date_macro=Today`, { headers }).then(r => r.json()),
     ]);
-
+    
     // 3. Parse helpers
     const lastNum = row => {
       const cols = row?.ColData || [];
